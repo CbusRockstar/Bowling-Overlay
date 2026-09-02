@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stream Scoreboard Backend Controller</title>
+    <style>
+        :root {
+            --bg-main: #121620;
+            --bg-card: #1a2233;
+            --bg-control: #1e293b;
+            --accent-blue: #2563eb;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .admin-panel {
+            background-color: var(--bg-control);
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .control-group {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+            background-color: rgba(0, 0, 0, 0.2);
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+        }
+
+        button, select, input {
+            background-color: #2d3748;
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            padding: 8px 14px;
+            border-radius: 4px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        button:hover { background-color: var(--accent-blue); }
+        button.active { background-color: var(--accent-green); }
+
+        .pindeck-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 20px 0;
+            padding: 15px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 6px;
+        }
+
+        .pin-grid { display: flex; flex-direction: column; align-items: center; gap: 12px; margin: 15px 0; }
+        .pin-row { display: flex; justify-content: center; gap: 16px; }
+
+        .pin-node {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background-color: #fff;
+            color: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.95rem;
+            box-shadow: 0 3px 0 #cbd5e1;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.1s ease;
+        }
+
+        .pin-node.down {
+            background-color: #475569;
+            color: #94a3b8;
+            box-shadow: none;
+            transform: translateY(3px);
+        }
+
+        .roster-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 15px; margin-top: 15px; }
+        .roster-item { background: rgba(0,0,0,0.15); padding: 12px; border-radius: 6px; border: 1px solid var(--border-color); }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <div class="admin-panel">
+        <h2 style="margin-top: 0; border-bottom: 2px solid var(--border-color); padding-bottom: 10px; color: var(--accent-blue);">Bowling Stream Live Control Desk</h2>
+        
+        <!-- Live Configuration Toggles -->
+        <div class="control-group">
+            <label style="font-weight: bold;">OVERLAY LAYOUT MODES:</label>
+            <div>
+                <input type="checkbox" id="toggleShowAll" onchange="handleLayoutToggle()">
+                <label for="toggleShowAll" style="font-weight: bold; margin-left: 3px;">Show All Player Scorecards</label>
+            </div>
+            <div id="compactToggleContainer">
+                <button id="btnLayoutMode" onclick="toggleLayoutSize()">View Mode: Full 10-Frame</button>
+            </div>
+            <div>
+                <input type="checkbox" id="toggleCompare" onchange="toggleCompareMode()">
+                <label for="toggleCompare" style="margin-left: 3px;">Compare Mode</label>
+                <select id="compareSelect" onchange="updateSystemState()" class="hidden"></select>
+            </div>
+        </div>
+
+        <!-- Manual State Engine Overrides -->
+        <div class="control-group">
+            <label style="font-weight: bold; color: var(--accent-green);">SCORING ENGINE SOURCE:</label>
+            <button id="btnEngineMode" onclick="toggleEngineMode()">Mode: Simulated Lanetalk Live Feed</button>
+            <span id="activeTurnDisplay" style="font-weight: bold; margin-left: 10px; color: var(--text-muted);"></span>
+        </div>
+
+        <!-- Interactive Pin Deck Override Panel -->
+        <div id="manualScorePanel" class="pindeck-wrapper hidden">
+            <h4 style="margin: 0 0 5px 0; color: #fff;">Interactive Manual Pin Deck Mapper</h4>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0 0 15px 0;">Select the pins that were KNOCKED DOWN on this shot:</p>
+            
+            <div class="pin-grid">
+                <!-- Row 4 -->
+                <div class="pin-row">
+                    <div class="pin-node" data-pin="7" onclick="togglePin(7)">7</div>
+                    <div class="pin-node" data-pin="8" onclick="togglePin(8)">8</div>
+                    <div class="pin-node" data-pin="9" onclick="togglePin(9)">9</div>
+                    <div class="pin-node" data-pin="10" onclick="togglePin(10)">10</div>
+                </div>
+                <!-- Row 3 -->
+                <div class="pin-row">
+                    <div class="pin-node" data-pin="4" onclick="togglePin(4)">4</div>
+                    <div class="pin-node" data-pin="5" onclick="togglePin(5)">5</div>
+                    <div class="pin-node" data-pin="6" onclick="togglePin(6)">6</div>
+                </div>
+                <!-- Row 2 -->
+                <div class="pin-row">
+                    <div class="pin-node" data-pin="2" onclick="togglePin(2)">2</div>
+                    <div class="pin-node" data-pin="3" onclick="togglePin(3)">3</div>
+                </div>
+                <!-- Row 1 -->
+                <div class="pin-row">
+                    <div class="pin-node" data-pin="1" onclick="togglePin(1)">1</div>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 15px; margin-top: 10px;">
+                <button onclick="handlePreviousBall()" style="background-color: #4b5563;">◀ Previous Ball</button>
+                <button onclick="clearPinDeck()" style="background-color: #4b5563;">Clear Pins</button>
+                <button id="btnAdvanceBall" onclick="handleAdvanceBall()" style="background-color: var(--accent-blue);">Advance Shot ▶</button>
+            </div>
+        </div>
+
+        <!-- Cycle Focused Frame Viewers -->
+        <div class="control-group">
+            <label>Cycle Player Focus on Screen:</label>
+            <button onclick="changeActivePlayer(-1)">◀ Prev Player</button>
+            <button onclick="changeActivePlayer(1)">Next Player ▶</button>
+        </div>
+
+        <!-- Roster Configurations -->
+        <div style="margin-top: 25px;">
+            <div style="display: flex; align-items: center; gap: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">
+                <h4 style="margin: 0;">Player Roster Setup</h4>
+                <button onclick="adjustRosterSize(-1)" style="padding: 2px 8px;">−</button>
+                <span id="rosterCountDisplay" style="font-weight: bold; color: var(--accent-blue);">4 Players</span>
+                <button onclick="adjustRosterSize(1)" style="padding: 2px 8px;">+</button>
+            </div>
+            <div id="rosterInputsContainer" class="roster-grid"></div>
+        </div>
+
+        <!-- Global Clear Actions -->
+        <div style="margin-top: 30px; border-top: 1px solid var(--border-color); padding-top: 15px; display: flex; justify-content: flex-end;">
+            <button onclick="resetWholeSystem()" style="background-color: var(--accent-red); padding: 10px 20px;">Reset All Match & Score Records</button>
+        </div>
+    </div>
+    <script>
+         // FIXED DATA & STATE ARCHITECTURE
+        let players = [
+            { id: 1, name: "Bowler 1", avg: 200, isBlind: false, frames: Array.from({length: 10}, () => []), runningScores: [], totalScore: 0 },
+            { id: 2, name: "Bowler 2", avg: 180, isBlind: false, frames: Array.from({length: 10}, () => []), runningScores: [], totalScore: 0 },
+            { id: 3, name: "Bowler 3", avg: 165, isBlind: false, frames: Array.from({length: 10}, () => []), runningScores: [], totalScore: 0 },
+            { id: 4, name: "Bowler 4", avg: 210, isBlind: false, frames: Array.from({length: 10}, () => []), runningScores: [], totalScore: 0 }
+        ];
+
+        let activePlayerIdx = 0;
+        let isManualMode = false;
+        let isCompactMode = false;
+        let isCompareMode = false;
+
+        let currentManualFrame = 0; 
+        let currentManualBall = 0;  
+        let pinsKnockedDownThisShot = new Set();
+
+        window.addEventListener('DOMContentLoaded', () => {
+            buildRosterInterface();
+            generateMockData();
+            calculateAllScores();
+            updateSystemState();
+            updateManualPanelDetails();
+        });
+
+        function buildRosterInterface() {
+            const container = document.getElementById('rosterInputsContainer');
+            container.innerHTML = '';
+            document.getElementById('rosterCountDisplay').textContent = `${players.length} Players`;
+
+            players.forEach((player, idx) => {
+                const div = document.createElement('div');
+                div.className = 'roster-item';
+                div.innerHTML = `
+                    <div style="font-weight: bold; margin-bottom: 8px; color: var(--accent-blue);">Position #${idx+1}</div>
+                    <div style="margin-bottom: 6px;">
+                        <label style="font-size: 0.8rem; display:block;">Name:</label>
+                        <input type="text" value="${player.name}" oninput="updatePlayerName(${idx}, this.value)" style="width: 90%;">
+                    </div>
+                    <div style="margin-bottom: 8px; display: flex; gap: 10px;">
+                        <div>
+                            <label style="font-size: 0.8rem; display:block;">Avg:</label>
+                            <input type="number" value="${player.avg}" oninput="updatePlayerAvg(${idx}, this.value)" style="width: 60px;">
+                        </div>
+                        <div style="display: flex; align-items: flex-end; padding-bottom: 5px;">
+                            <input type="checkbox" id="blind_${idx}" ${player.isBlind ? 'checked' : ''} onchange="togglePlayerBlind(${idx}, this.checked)">
+                            <label for="blind_${idx}" style="font-size: 0.85rem; margin-left: 4px; color: var(--text-muted);">Blind</label>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+
+            const compSelect = document.getElementById('compareSelect');
+            compSelect.innerHTML = '';
+            players.forEach((p, idx) => {
+                const opt = document.createElement('option');
+                opt.value = idx;
+                opt.textContent = p.name;
+                compSelect.appendChild(opt);
+            });
+        }
+
+		function updateSystemState() {
+			const state = {
+				players: players,
+				activePlayerIdx: activePlayerIdx,
+				isCompactMode: isCompactMode,
+				isCompareMode: isCompareMode,
+				compareIdx: parseInt(document.getElementById('compareSelect').value) || 0,
+				showAll: document.getElementById('toggleShowAll').checked
+			};
+
+			// REPLACE THIS URL with your actual free data bin URL
+			const publicBinURL = 'https://api.npoint.io/4793b7d4fa04567acf1b';
+
+			fetch(publicBinURL, {
+				method: 'POST', // or 'PUT' depending on the service you picked
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(state)
+			})
+			.catch(err => console.error("Scoreboard cloud update error:", err));
+		}
+
+
+        function adjustRosterSize(amount) {
+            if (amount > 0 && players.length < 6) {
+                const newId = players.length + 1;
+                players.push({ id: newId, name: `Bowler ${newId}`, avg: 150, isBlind: false, frames: Array.from({length: 10}, () => []), runningScores: [], totalScore: 0 });
+            } else if (amount < 0 && players.length > 1) {
+                players.pop();
+                if (activePlayerIdx >= players.length) activePlayerIdx = players.length - 1;
+            }
+            buildRosterInterface();
+            calculateAllScores();
+            updateSystemState();
+        }
+
+        function updatePlayerName(idx, val) {
+            players[idx].name = val || `Bowler ${idx+1}`;
+            calculateAllScores();
+            updateSystemState();
+            const compSelect = document.getElementById('compareSelect');
+            if(compSelect.options[idx]) compSelect.options[idx].textContent = players[idx].name;
+        }
+
+        function updatePlayerAvg(idx, val) {
+            players[idx].avg = parseInt(val) || 0;
+            if (players[idx].isBlind) applyBlindScoreRules(idx);
+            calculateAllScores();
+            updateSystemState();
+        }
+
+        function togglePlayerBlind(idx, checked) {
+            players[idx].isBlind = checked;
+            if (checked) {
+                applyBlindScoreRules(idx);
+            } else {
+                players[idx].frames = Array.from({length: 10}, () => []);
+            }
+            calculateAllScores();
+            updateSystemState();
+            updateManualPanelDetails();
+        }
+
+        function applyBlindScoreRules(idx) {
+            const targetScore = Math.max(0, players[idx].avg - 10);
+            players[idx].frames = Array.from({length: 10}, () => []);
+            const frameFlatValue = Math.floor(targetScore / 10);
+            const remainder = targetScore % 10;
+            for(let i=0; i<10; i++) {
+                players[idx].frames[i] = (i === 9) ? [frameFlatValue + remainder, 0] : [frameFlatValue, 0];
+            }
+        }
+		        function calculateAllScores() {
+            players.forEach((player) => {
+                if (player.isBlind) {
+                    let sum = 0;
+                    player.runningScores = player.frames.map(f => {
+                        sum += (f[0] || 0) + (f[1] || 0);
+                        return sum;
+                    });
+                    player.totalScore = Math.max(0, player.avg - 10);
+                    return;
+                }
+
+                let runningScores = [];
+                let total = 0;
+                const frames = player.frames;
+
+                for (let i = 0; i < 10; i++) {
+                    const currentFrame = frames[i] || [];
+                    if (currentFrame.length === 0) break;
+
+                    if (i < 9) {
+                        const f0 = currentFrame[0] || 0;
+                        const f1 = currentFrame[1] || 0;
+
+                        if (f0 === 10) { // Strike
+                            let bonus = 10;
+                            const nextFrame = frames[i+1] || [];
+                            if (nextFrame.length > 0) {
+                                bonus += nextFrame[0] || 0;
+                                if (nextFrame[0] === 10 && i < 8) {
+                                    const nextNextFrame = frames[i+2] || [];
+                                    if (nextNextFrame.length > 0) {
+                                        bonus += nextNextFrame[0] || 0;
+                                    }
+                                } else if (nextFrame.length > 1) {
+                                    bonus += nextFrame[1] || 0;
+                                }
+                            }
+                            total += bonus;
+                        } else if (f0 + f1 === 10) { // Spare
+                            let bonus = 10;
+                            const nextFrame = frames[i+1] || [];
+                            if (nextFrame.length > 0) {
+                                bonus += nextFrame[0] || 0;
+                            }
+                            total += bonus;
+                        } else { // Open Frame
+                            total += f0 + f1;
+                        }
+                    } else {
+                        // 10th Frame Calculation
+                        const f0 = currentFrame[0] || 0;
+                        const f1 = currentFrame[1] || 0;
+                        const f2 = currentFrame[2] || 0;
+                        total += f0 + f1 + f2;
+                    }
+                    runningScores.push(total);
+                }
+                player.runningScores = runningScores;
+                player.totalScore = runningScores.length > 0 ? runningScores[runningScores.length - 1] : 0;
+            });
+        }
+        function togglePin(pinNum) {
+            if (!isManualMode) return;
+            const node = document.querySelector(`.pin-node[data-pin="${pinNum}"]`);
+            if (pinsKnockedDownThisShot.has(pinNum)) {
+                pinsKnockedDownThisShot.delete(pinNum);
+                node.classList.remove('down');
+            } else {
+                pinsKnockedDownThisShot.add(pinNum);
+                node.classList.add('down');
+            }
+        }
+
+        function clearPinDeck() {
+            pinsKnockedDownThisShot.clear();
+            document.querySelectorAll('.pin-node').forEach(node => node.classList.remove('down'));
+        }
+
+        function handleAdvanceBall() {
+            const p = players[activePlayerIdx];
+            if (p.isBlind) return;
+
+            let count = pinsKnockedDownThisShot.size;
+            
+            if (currentManualFrame < 9) {
+                if (currentManualBall === 0) {
+                    p.frames[currentManualFrame] = [count];
+                    if (count === 10) { 
+                        p.frames[currentManualFrame].push(0); 
+                        currentManualFrame++;
+                    } else {
+                        currentManualBall = 1;
+                    }
+                } else {
+                    let firstShot = p.frames[currentManualFrame][0] || 0;
+                    if (firstShot + count > 10) count = 10 - firstShot; 
+                    p.frames[currentManualFrame].push(count);
+                    currentManualFrame++;
+                    currentManualBall = 0;
+                }
+            } else {
+                if (!p.frames[currentManualFrame]) p.frames[currentManualFrame] = [];
+                p.frames[currentManualFrame].push(count);
+                
+                let len = p.frames[currentManualFrame].length;
+                if (len === 1) {
+                    currentManualBall = 1;
+                } else if (len === 2) {
+                    let f1 = p.frames[currentManualFrame][0] || 0;
+                    let f2 = p.frames[currentManualFrame][1] || 0;
+                    if (f1 === 10 || f1 + f2 === 10) {
+                        currentManualBall = 2; 
+                    } else {
+                        advanceToNextPlayerTurn();
+                    }
+                } else {
+                    advanceToNextPlayerTurn();
+                }
+            }
+
+            clearPinDeck();
+            calculateAllScores();
+            updateSystemState();
+            updateManualPanelDetails();
+        }
+
+        function handlePreviousBall() {
+            const p = players[activePlayerIdx];
+            if (p.isBlind) return;
+
+            if (currentManualBall === 1 && currentManualFrame < 9) {
+                p.frames[currentManualFrame] = [];
+                currentManualBall = 0;
+            } else if (currentManualBall === 0 && currentManualFrame > 0) {
+                currentManualFrame--;
+                if (p.frames[currentManualFrame][0] === 10) {
+                    p.frames[currentManualFrame] = [];
+                    currentManualBall = 0;
+                } else {
+                    p.frames[currentManualFrame].pop();
+                    currentManualBall = 1;
+                }
+            } else if (currentManualFrame === 9) {
+                if (p.frames[currentManualFrame] && p.frames[currentManualFrame].length > 0) {
+                    p.frames[currentManualFrame].pop();
+                    currentManualBall = Math.max(0, p.frames[currentManualFrame].length - 1);
+                } else {
+                    currentManualFrame = 8;
+                    if (p.frames[currentManualFrame][0] === 10) {
+                        p.frames[currentManualFrame] = [];
+                        currentManualBall = 0;
+                    } else {
+                        p.frames[currentManualFrame].pop();
+                        currentManualBall = 1;
+                    }
+                }
+            }
+
+            clearPinDeck();
+            calculateAllScores();
+            updateSystemState();
+            updateManualPanelDetails();
+        }
+
+        function advanceToNextPlayerTurn() {
+            currentManualFrame = 0;
+            currentManualBall = 0;
+            changeActivePlayer(1);
+        }
+
+        function updateManualPanelDetails() {
+            const p = players[activePlayerIdx];
+            const header = document.getElementById('activeTurnDisplay');
+            const advanceBtn = document.getElementById('btnAdvanceBall');
+            
+            if (p.isBlind) {
+                header.textContent = `[${p.name} is Absent - Auto Filled]`;
+                return;
+            }
+
+            header.textContent = `Focus Turn: ${p.name} | Frame: ${currentManualFrame + 1} | Ball: ${currentManualBall + 1}`;
+            
+            const frameLen = p.frames[currentManualFrame] ? p.frames[currentManualFrame].length : 0;
+            const f1 = p.frames[currentManualFrame] ? (p.frames[currentManualFrame][0] || 0) : 0;
+            const f2 = p.frames[currentManualFrame] ? (p.frames[currentManualFrame][1] || 0) : 0;
+            
+            advanceBtn.textContent = (currentManualFrame === 9 && frameLen >= 2 && (f1 === 10 || f1 + f2 === 10)) ? "Finish Frame 10 ⚑" : "Advance Shot ▶";
+        }
+
+        function handleLayoutToggle() {
+            const showAll = document.getElementById('toggleShowAll').checked;
+            const compactBtn = document.getElementById('compactToggleContainer');
+            if (showAll) compactBtn.classList.add('hidden');
+            else compactBtn.classList.remove('hidden');
+            updateSystemState();
+        }
+
+        function toggleLayoutSize() {
+            isCompactMode = !isCompactMode;
+            document.getElementById('btnLayoutMode').textContent = isCompactMode ? "View Mode: 3-Frame Rolling" : "View Mode: Full 10-Frame";
+            updateSystemState();
+        }
+
+        function toggleCompareMode() {
+            isCompareMode = document.getElementById('toggleCompare').checked;
+            const select = document.getElementById('compareSelect');
+            if (isCompareMode) select.classList.remove('hidden');
+            else select.classList.add('hidden');
+            updateSystemState();
+        }
+
+        function toggleEngineMode() {
+            isManualMode = !isManualMode;
+            const btn = document.getElementById('btnEngineMode');
+            const panel = document.getElementById('manualScorePanel');
+            
+            if (isManualMode) {
+                btn.textContent = "Mode: Manual Panel Active Override";
+                btn.classList.add('active');
+                panel.classList.remove('hidden');
+            } else {
+                btn.textContent = "Mode: Simulated Lanetalk Live Feed";
+                btn.classList.remove('active');
+                panel.classList.add('hidden');
+            }
+        }
+
+        function changeActivePlayer(direction) {
+            activePlayerIdx = (activePlayerIdx + direction + players.length) % players.length;
+            let p = players[activePlayerIdx];
+            let nextUnfilled = p.frames.findIndex(f => f.length === 0);
+            currentManualFrame = nextUnfilled === -1 ? 9 : nextUnfilled;
+            currentManualBall = p.frames[currentManualFrame]?.length || 0;
+
+            updateSystemState();
+            updateManualPanelDetails();
+        }
+
+        function resetWholeSystem() {
+            players.forEach((p, idx) => {
+                p.frames = Array.from({length: 10}, () => []);
+                p.runningScores = [];
+                p.totalScore = 0;
+                if(p.isBlind) applyBlindScoreRules(idx);
+            });
+            currentManualFrame = 0;
+            currentManualBall = 0;
+            clearPinDeck();
+            calculateAllScores();
+            updateSystemState();
+            updateManualPanelDetails();
+        }
+
+        function generateMockData() {
+            players[0].frames = [[10,0], [10,0], [8,2]];
+            players[1].frames = [[7,2], [9,1]];
+            players[2].frames = [[6,2]];
+        }
+    </script>
+</body>
+</html>
+
+</body>
+</html>

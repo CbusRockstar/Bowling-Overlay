@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audience Scorecard Overlay</title>
+    <style>
+        :root {
+            --bg-card: #1a2233;
+            --accent-blue: #2563eb;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            background-color: transparent; 
+            color: var(--text-main);
+            margin: 0;
+            padding: 10px;
+            overflow: hidden;
+        }
+
+        .scoreboard-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            width: 100%;
+        }
+
+        .player-row {
+            display: flex;
+            align-items: stretch;
+            background-color: var(--bg-card);
+            border: 2px solid var(--border-color);
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        .player-info-box {
+            width: 200px;
+            min-width: 200px;
+            padding: 15px;
+            background-color: rgba(0,0,0,0.3);
+            border-right: 2px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .player-name {
+            font-size: 1.25rem;
+            font-weight: bold;
+            text-overflow: ellipsis;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+
+        .player-stats {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .diff-indicator {
+            font-weight: bold;
+            font-size: 0.95rem;
+            margin-top: 4px;
+        }
+        .diff-lead { color: var(--accent-green); }
+        .diff-trail { color: var(--accent-red); }
+
+        .frames-grid { display: flex; flex-grow: 1; }
+
+        .frame-box {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border-color);
+            min-width: 60px;
+        }
+        .frame-box:last-child { border-right: none; min-width: 90px; }
+
+        .frame-number {
+            background-color: rgba(0,0,0,0.15);
+            text-align: center;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            padding: 2px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .frame-shots { display: flex; flex-grow: 1; height: 30px; border-bottom: 1px solid var(--border-color); }
+
+        .shot {
+            flex: 1;
+            text-align: center;
+            line-height: 30px;
+            font-weight: bold;
+            font-size: 0.9rem;
+            border-right: 1px solid var(--border-color);
+        }
+        .shot:last-child { border-right: none; }
+
+        .frame-total { height: 35px; text-align: center; line-height: 35px; font-size: 1.1rem; font-weight: bold; }
+
+        .final-score-box {
+            width: 90px;
+            background-color: rgba(37, 99, 235, 0.15);
+            border-left: 2px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .final-score-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; }
+        .final-score-value { font-size: 1.75rem; font-weight: 900; color: #fff; }
+    </style>
+</head>
+<body>
+
+    <div id="scoreboard" class="scoreboard-container"></div>
+
+    <script>
+    // This tells OBS to fetch the scores from your free online bin automatically
+setInterval(() => {
+    // REPLACE THIS URL with your actual free data bin URL
+    const publicBinURL = 'https://api.npoint.io/4793b7d4fa04567acf1b';
+
+    fetch(publicBinURL)
+        .then(res => res.json())
+        .then(state => {
+            if (state && state.players) {
+                renderOverlay(state);
+            }
+        })
+        .catch(err => console.log("Reconnecting to scoreboard stream..."));
+}, 500); // Checks the cloud link every 500ms for fast updates on stream
+
+    </script>
+</body>
+</html>
